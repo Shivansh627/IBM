@@ -8,35 +8,41 @@ const wasteInput = document.querySelector('#waste');
 const transportationInput = document.querySelector('#transportation');
 const calculateButton = document.querySelector('#calculate');
 const resultDiv = document.querySelector('#result');
+const chartContainer = document.querySelector('#chart-container');
+const carbonChart = document.querySelector('#carbonChart');
+const comparisonResult = document.querySelector('#comparison-result');
 
-// Define the calculation functions
+// Standard carbon footprint values (in kg CO2)
+const standardFootprint = {
+  electricity: 100,
+  gas: 200,
+  oil: 150,
+  water: 50,
+  waste: 75,
+  transportation: 300
+};
+
 function calculateElectricityCarbonFootprint(electricityConsumption) {
-  // Assume 1 kWh of electricity generates 0.62 kg of CO2
   return electricityConsumption * 0.62;
 }
 
 function calculateGasCarbonFootprint(gasConsumption) {
-  // Assume 1 therm of gas generates 5.3 kg of CO2
   return gasConsumption * 5.3;
 }
 
 function calculateOilCarbonFootprint(oilConsumption) {
-  // Assume 1 gallon of oil generates 10.2 kg of CO2
   return oilConsumption * 10.2;
 }
 
 function calculateWaterCarbonFootprint(waterConsumption) {
-  // Assume 1 gallon of water generates 0.24 kg of CO2
   return waterConsumption * 0.24;
 }
 
 function calculateWasteCarbonFootprint(wasteGeneration) {
-  // Assume 1 pound of waste generates 0.82 kg of CO2
   return wasteGeneration * 0.82;
 }
 
 function calculateTransportationCarbonFootprint(transportationMiles) {
-  // Assume 1 mile of driving generates 0.41 kg of CO2
   return transportationMiles * 0.41;
 }
 
@@ -44,12 +50,12 @@ function calculateTransportationCarbonFootprint(transportationMiles) {
 function calculateCarbonFootprint(event) {
   event.preventDefault(); // Prevent the default form submission behavior
 
-  const electricityConsumption = parseFloat(electricityInput.value);
-  const gasConsumption = parseFloat(gasInput.value);
-  const oilConsumption = parseFloat(oilInput.value);
-  const waterConsumption = parseFloat(waterInput.value);
-  const wasteGeneration = parseFloat(wasteInput.value);
-  const transportationMiles = parseFloat(transportationInput.value);
+  const electricityConsumption = parseFloat(electricityInput.value) || 0;
+  const gasConsumption = parseFloat(gasInput.value) || 0;
+  const oilConsumption = parseFloat(oilInput.value) || 0;
+  const waterConsumption = parseFloat(waterInput.value) || 0;
+  const wasteGeneration = parseFloat(wasteInput.value) || 0;
+  const transportationMiles = parseFloat(transportationInput.value) || 0;
 
   const electricityCarbonFootprint = calculateElectricityCarbonFootprint(electricityConsumption);
   const gasCarbonFootprint = calculateGasCarbonFootprint(gasConsumption);
@@ -60,23 +66,88 @@ function calculateCarbonFootprint(event) {
 
   const totalCarbonFootprint = electricityCarbonFootprint + gasCarbonFootprint + oilCarbonFootprint + waterCarbonFootprint + wasteCarbonFootprint + transportationCarbonFootprint;
 
-  // Display the result
-  resultDiv.innerHTML = `
-    <h2>Your Carbon Footprint:</h2>
-    <p>Total: ${totalCarbonFootprint.toFixed(2)} kg CO2</p>
-    <p>Electricity: ${electricityCarbonFootprint.toFixed(2)} kg CO2</p>
-    <p>Gas: ${gasCarbonFootprint.toFixed(2)} kg CO2</p>
-    <p>Oil: ${oilCarbonFootprint.toFixed(2)} kg CO2</p>
-    <p>Water: ${waterCarbonFootprint.toFixed(2)} kg CO2</p>
-    <p>Waste: ${wasteCarbonFootprint.toFixed(2)} kg CO2</p>
-    <p>Transportation: ${transportationCarbonFootprint.toFixed(2)} kg CO2</p>
-  `;
+  // Display the result as a chart
+  displayCarbonFootprintChart({
+    electricity: electricityCarbonFootprint,
+    gas: gasCarbonFootprint,
+    oil: oilCarbonFootprint,
+    water: waterCarbonFootprint,
+    waste: wasteCarbonFootprint,
+    transportation: transportationCarbonFootprint,
+  }, totalCarbonFootprint);
+
+  // Compare with standard values
+  compareWithStandards({
+    electricity: electricityCarbonFootprint,
+    gas: gasCarbonFootprint,
+    oil: oilCarbonFootprint,
+    water: waterCarbonFootprint,
+    waste: wasteCarbonFootprint,
+    transportation: transportationCarbonFootprint,
+  });
 }
-function handle(){
-  document.querySelector("#result").classList.toggle("none")
+
+function displayCarbonFootprintChart(data, total) {
+  const ctx = carbonChart.getContext('2d');
+  if (window.chart) window.chart.destroy();
+
+  window.chart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Electricity', 'Gas', 'Oil', 'Water', 'Waste', 'Transportation'],
+      datasets: [{
+        data: Object.values(data),
+        backgroundColor: ['#ff6384', '#36a2eb', '#cc65fe', '#ffce56', '#67b151', '#4ba44e'],
+        hoverBackgroundColor: ['#ff6384', '#36a2eb', '#cc65fe', '#ffce56', '#67b151', '#4ba44e'],
+      }]
+    },
+    options: {
+      responsive: true,
+      cutoutPercentage: 60, // Adjusted size of the donut chart
+      legend: {
+        position: 'bottom',
+        labels: {
+          fontSize: 14
+        }
+      },
+      plugins: {
+        datalabels: {
+          color: '#fff',
+          formatter: (value, ctx) => {
+            let label = ctx.chart.data.labels[ctx.dataIndex];
+            return `${label}: ${value.toFixed(2)} kg CO2`;
+          }
+        }
+      },
+      title: {
+        display: true,
+        text: `Total Carbon Footprint: ${total.toFixed(2)} kg CO2`,
+        fontSize: 16
+      },
+      animation: {
+        animateScale: true,
+        animateRotate: true
+      }
+    }
+  });
+
+  chartContainer.classList.remove('none');
 }
+
+function compareWithStandards(data) {
+  let comparisonText = '';
+  for (const [key, value] of Object.entries(data)) {
+    if (value > standardFootprint[key]) {
+      comparisonText += `<p>Your ${key} carbon footprint is ${value.toFixed(2)} kg CO2, which is higher than the standard (${standardFootprint[key]} kg CO2).</p>`;
+    } else if (value < standardFootprint[key]) {
+      comparisonText += `<p>Your ${key} carbon footprint is ${value.toFixed(2)} kg CO2, which is lower than the standard (${standardFootprint[key]} kg CO2).</p>`;
+    } else {
+      comparisonText += `<p>Your ${key} carbon footprint is exactly at the standard (${standardFootprint[key]} kg CO2).</p>`;
+    }
+  }
+  comparisonResult.innerHTML = comparisonText;
+  comparisonResult.classList.remove('none');
+}
+
 // Add event listener to the form submission event
 form.addEventListener('submit', calculateCarbonFootprint);
-
-sub=document.getElementById("calculate")
-sub.addEventListener("click",handle)
